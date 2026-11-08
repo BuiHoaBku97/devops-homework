@@ -1,0 +1,1 @@
+docker logs -n 15 -t rikkei-course-service
