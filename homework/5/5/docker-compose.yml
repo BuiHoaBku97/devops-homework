@@ -1,0 +1,195 @@
+services:
+
+  user-db-service:
+    image: postgres:17-alpine
+    container_name: user-db-container
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=user_db
+      - POSTGRES_USER=${USER_DB_USERNAME}
+      - POSTGRES_PASSWORD=${USER_DB_PW}
+    ports:
+      - "${USER_DB_PORT}:${POSTGRES_PORT}"
+    volumes:
+      - user-db-service-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d user_db" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - user-net
+  restaurant-db-service:
+    image: postgres:17-alpine
+    container_name: restaurant-db-container
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=restaurant_db
+      - POSTGRES_USER=${RESTAURANT_DB_USERNAME}
+      - POSTGRES_PASSWORD=${RESTAURANT_DB_PW}
+    ports:
+      - "${RESTAURANT_DB_PORT}:${POSTGRES_PORT}"
+    volumes:
+      - restaurant-db-service-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d restaurant_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - restaurant-net
+  order-db-service:
+    image: postgres:17-alpine
+    container_name: order-db-container
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=order_db
+      - POSTGRES_USER=${ORDER_DB_USERNAME}
+      - POSTGRES_PASSWORD=${ORDER_DB_PW}
+    ports:
+      - "${ORDER_DB_PORT}:${POSTGRES_PORT}"
+    volumes:
+      - order-db-service-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d order_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - order-net
+  notification-db-service:
+    image: postgres:17-alpine
+    container_name: notification-db-container
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=notification_db
+      - POSTGRES_USER=${NOTIFICATION_DB_USERNAME}
+      - POSTGRES_PASSWORD=${NOTIFICATION_DB_PW}
+    ports:
+      - "${NOTIFICATION_DB_PORT}:${POSTGRES_PORT}"
+    volumes:
+      - notification-db-service-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d notification_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - notification-net
+
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    image: user-service:latest
+    container_name: user-container
+    environment:
+      - DB_URL=${USER_DB_URL}
+      - DB_USERNAME=${USER_DB_USERNAME}
+      - DB_PW=${USER_DB_PW}
+      - EUREKA_SERVER_HOST=discovery-service
+    restart: unless-stopped
+    depends_on:
+      user-db-service:
+        condition: service_healthy
+    networks:
+      - user-net
+      - erp-ss05-net
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    image: order-service:latest
+    container_name: order-container
+    environment:
+      - DB_URL=${ORDER_DB_URL}
+      - DB_USERNAME=${ORDER_DB_USERNAME}
+      - DB_PW=${ORDER_DB_PW}
+      - EUREKA_SERVER_HOST=discovery-service
+    restart: unless-stopped
+    depends_on:
+      order-db-service:
+        condition: service_healthy
+    networks:
+      - order-net
+      - erp-ss05-net
+
+  restaurant-service:
+    build:
+      context: ./restaurant-service
+      dockerfile: Dockerfile
+    image: restaurant-service:latest
+    container_name: restaurant-container
+    environment:
+      - DB_URL=${RESTAURANT_DB_URL}
+      - DB_USERNAME=${RESTAURANT_DB_USERNAME}
+      - DB_PW=${RESTAURANT_DB_PW}
+      - EUREKA_SERVER_HOST=discovery-service
+    restart: unless-stopped
+    depends_on:
+      restaurant-db-service:
+        condition: service_healthy
+    networks:
+      - restaurant-net
+      - erp-ss05-net
+
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    image: notification-service:latest
+    container_name: notification-container
+    restart: unless-stopped
+    environment:
+      - DB_URL=${NOTIFICATION_DB_URL}
+      - DB_USERNAME=${NOTIFICATION_DB_USERNAME}
+      - DB_PW=${NOTIFICATION_DB_PW}
+      - EUREKA_SERVER_HOST=discovery-service
+    depends_on:
+      notification-db-service:
+        condition: service_healthy
+    networks:
+      - notification-net
+      - erp-ss05-net
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    image: gateway-service:latest
+    container_name: gateway-container
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - USER_SERVICE_HOST=user-service
+      - ORDER_SERVICE_HOST=order-service
+      - RESTAURANT_SERVICE_HOST=restaurant-service
+      - NOTIFICATION_SERVICE_HOST=notification-service
+      - EUREKA_SERVER_HOST=discovery-service
+
+    networks:
+      - erp-ss05-net
+
+volumes:
+  user-db-service-data:
+  order-db-service-data:
+  restaurant-db-service-data:
+  notification-db-service-data:
+
+networks:
+  user-net:
+    name: user-net
+    driver: bridge
+  order-net:
+    name: order-net
+    driver: bridge
+  restaurant-net:
+    name: restaurant-net
+    driver: bridge
+  notification-net:
+    name: notification-net
+    driver: bridge
+  erp-ss05-net:
+    name: erp-ss05-net
+    driver: bridge
