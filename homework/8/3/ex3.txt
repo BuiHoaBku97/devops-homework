@@ -1,0 +1,7 @@
+docker build -t payment-service:1.0.0 .
+docker tag payment-service:1.0.0 ghcr.io/buihoabku97/payment-service:1.0.0
+docker login ghcr.io -u BuiHoaBku97
+docker push ghcr.io/buihoabku97/payment-service:1.0.0
+
+-------------------------
+ghcr.io/buihoabku97/payment-service
