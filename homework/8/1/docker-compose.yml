@@ -1,0 +1,74 @@
+services:
+  cart-db:
+    image: postgres:17-alpine
+    container_name: cart-db-container
+    restart: unless-stopped
+    networks:
+      - quickbite-ci
+    environment:
+      - POSTGRES_DB=cartdb
+      - POSTGRES_USER=${CORE_DB_USERNAME}
+      - POSTGRES_PASSWORD=${CORE_DB_PW}
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT}:${CORE_DB_PORT}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cartdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  restaurant-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: restaurant-service-container
+    restart: unless-stopped
+    environment:
+      - CORE_DB_URL=${CORE_DB_URL}
+      - CORE_DB_USERNAME=${CORE_DB_USERNAME}
+      - CORE_DB_PW=${CORE_DB_PW}
+      - RESTAURANT_SERVICE_PORT=${RESTAURANT_SERVICE_PORT}
+    depends_on:
+      cart-db:
+        condition: service_healthy
+    ports:
+      - "${RESTAURANT_SERVICE_PORT}:${RESTAURANT_SERVICE_PORT}"
+
+  github-runner:
+    image: myoung34/github-runner:latest
+    container_name: quickbite-restaurant-runner
+    restart: unless-stopped
+    networks:
+      - quickbite-ci
+    depends_on:
+      cart-db:
+        condition: service_healthy
+    environment:
+      # Repository-scoped registration. Set these in the host environment or .env.
+      RUNNER_SCOPE: repo
+      REPO_URL: ${GITHUB_REPOSITORY_URL:?Set GITHUB_REPOSITORY_URL to the restaurant-service GitHub URL}
+      ACCESS_TOKEN: ${GITHUB_RUNNER_ACCESS_TOKEN:?Set GITHUB_RUNNER_ACCESS_TOKEN to a GitHub PAT with repository runner administration permission}
+      RUNNER_NAME: quickbite-restaurant-runner
+      LABELS: quickbite,restaurant-service,docker
+      # _work is the default GitHub Actions workspace inside the runner image.
+      RUNNER_WORKDIR: /_work
+      # Persist runner registration/configuration across container recreation.
+      CONFIGURED_ACTIONS_RUNNER_FILES_DIR: /runner/data
+      DISABLE_AUTOMATIC_DEREGISTRATION: "true"
+    volumes:
+      # Gives Docker commands in workflow steps access to the host Docker daemon.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Preserve the runner's temporary checkout/build workspace.
+      - runner-work:/_work
+      - runner-data:/runner/data
+
+volumes:
+  pg-data:
+  runner-work:
+  runner-data:
+
+networks:
+  quickbite-ci:
+    name: quickbite-ci
