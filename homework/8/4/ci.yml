@@ -1,0 +1,41 @@
+name: CI Payment Service
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+
+  verify-ghcr-image:
+    name: Pull and run GHCR image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Log in to GHCR
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      - name: Build lowercase image reference
+        run: |
+          IMAGE_REF="ghcr.io/buihoabku97/payment-service:1.0.0"
+          IMAGE_REF="$(printf '%s' "$IMAGE_REF" | tr '[:upper:]' '[:lower:]')"
+          echo "IMAGE_REF=$IMAGE_REF" >> "$GITHUB_ENV"
+          echo "Using image: $IMAGE_REF"
+
+      - name: Pull image from GHCR
+        run: docker pull "$IMAGE_REF"
+
+      - name: Start verification container
+        run: docker run --detach --name payment-service-verify -p 8080:8080 "$IMAGE_REF"
+
+      - name: Show container status
+        run: docker ps -a --filter name=payment-service-verify
+
+# Result link: https://github.com/BuiHoaBku97/devops-ss07-payment-service/actions/runs/44575872972/job/135743103451
