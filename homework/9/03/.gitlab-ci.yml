@@ -44,4 +44,4 @@ build_job:
     name: user-service-artifact
     paths:
       - build/libs/*-SNAPSHOT.jar
-    expire_in: 3 days
+    expire_in: 1 days
