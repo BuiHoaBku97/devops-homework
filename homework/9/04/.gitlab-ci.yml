@@ -61,3 +61,5 @@ dockerize_job:
   script:
     - docker build -t "$DOCKER_USERNAME/user-service:latest" .
     - docker push "$DOCKER_USERNAME/user-service:latest"
+
+# Link docker image: https://hub.docker.com/repository/docker/buihoa216/user-service/general
